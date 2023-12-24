@@ -82,10 +82,11 @@ interface DataMapperInterface
     public function asClass(?string $class = null): self;
 
     /**
+     * @param null|object $obj
      * @return self
      * @throws DataMapperException
      */
-    public function asObject(): self;
+    public function asObject(?object $obj = null): self;
 
     /**
      * @return self

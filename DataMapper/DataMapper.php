@@ -148,9 +148,13 @@ class DataMapper implements DataMapperInterface
     /**
      * @inheritDoc
      */
-    public function asObject(): self
+    public function asObject(?object $obj = null): self
     {
-        $this->getStatement()->setFetchMode(PDO::FETCH_OBJ);
+        if (null !== $obj) {
+            $this->getStatement()->setFetchMode(PDO::FETCH_INTO, $obj);
+        } else {
+            $this->getStatement()->setFetchMode(PDO::FETCH_OBJ);
+        }
 
         return $this;
     }
