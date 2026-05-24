@@ -195,7 +195,13 @@ final class ConnectionTest extends TestCase
             [PDO::ATTR_CURSOR => PDO::CURSOR_FWDONLY]
         );
 
-        self::assertSame(['id' => 1], $mapper->asAssoc()->row());
+        // pdo_sqlite returned integer columns as strings before PHP 8.1,
+        // so compare loosely on the value while still proving the bind
+        // and the prepare options round-tripped.
+        $row = $mapper->asAssoc()->row();
+        self::assertIsArray($row);
+        self::assertSame(['id'], array_keys($row));
+        self::assertSame(1, (int) $row['id']);
     }
 
     public function test_forwards_pdo_methods_via_call(): void
