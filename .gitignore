@@ -2,7 +2,9 @@
 /.vs/
 /.vscode/
 /vendor/
+/build/
 /composer.lock
 /.phpunit.result.cache
+/.phpunit.cache/
 /nbproject/private/
 /*.log
