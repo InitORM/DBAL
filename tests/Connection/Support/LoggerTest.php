@@ -109,6 +109,14 @@ final class LoggerTest extends TestCase
         @rmdir($dir);
     }
 
+    public function test_returns_false_when_sink_is_an_unsupported_type(): void
+    {
+        // Integers, floats and plain objects without `critical()` fall through
+        // to the final `return false`.
+        self::assertFalse((new Logger(123))->write('boom'));
+        self::assertFalse((new Logger(new \stdClass()))->write('boom'));
+    }
+
     public function test_interpolation_skips_array_and_object_context_values(): void
     {
         $captured = null;

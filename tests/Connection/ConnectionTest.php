@@ -292,4 +292,151 @@ final class ConnectionTest extends TestCase
         $this->expectException(ConnectionException::class);
         $connection->getPDO();
     }
+
+    /**
+     * Regression for BUG-3: when no driver is configured, `connect()` should
+     * read the actual driver name from the live PDO instance.
+     */
+    public function test_connect_reads_driver_name_from_pdo_when_unset(): void
+    {
+        $connection = new Connection([
+            'dsn'     => 'sqlite::memory:',
+            'driver'  => '',
+            'charset' => '',
+        ]);
+
+        $connection->getPDO();
+        self::assertSame('sqlite', $connection->getDriver());
+    }
+
+    public function test_trivial_setters_and_getters_round_trip(): void
+    {
+        $connection = SqliteHelper::makeConnection();
+
+        $connection->setHost('h')
+                   ->setPort(1234)
+                   ->setDsn('sqlite::memory:')
+                   ->setUsername('u')
+                   ->setPassword('p')
+                   ->setDriver('mysql')
+                   ->setCharset('utf8mb4', 'utf8mb4_unicode_ci')
+                   ->setDebug(true);
+
+        self::assertSame('h', $connection->getHost());
+        self::assertSame(1234, $connection->getPort());
+        self::assertSame('sqlite::memory:', $connection->getDsn());
+        self::assertSame('u', $connection->getUsername());
+        self::assertSame('p', $connection->getPassword());
+        self::assertSame('mysql', $connection->getDriver());
+        self::assertSame('utf8mb4', $connection->getCharset());
+        self::assertSame('utf8mb4_unicode_ci', $connection->getCollation());
+        self::assertTrue($connection->getDebug());
+    }
+
+    public function test_setDriver_rejects_unsafe_identifier(): void
+    {
+        $connection = SqliteHelper::makeConnection();
+
+        $this->expectException(ConnectionInvalidArgumentException::class);
+        $connection->setDriver("mysql'; --");
+    }
+
+    public function test_setCharset_rejects_unsafe_collation(): void
+    {
+        $connection = SqliteHelper::makeConnection();
+
+        $this->expectException(ConnectionInvalidArgumentException::class);
+        $connection->setCharset('utf8', "utf8'; DROP");
+    }
+
+    public function test_getDatabase_returns_null_for_empty_string(): void
+    {
+        $connection = SqliteHelper::makeConnection(['database' => '']);
+
+        self::assertNull($connection->getDatabase());
+    }
+
+    /**
+     * Run the MySQL-only charset branch by spoofing the credentials driver
+     * to 'mysql' after the underlying PDO has been opened against SQLite.
+     * SQLite rejects `SET NAMES`, so the method bubbles a PDOException —
+     * but every branch up to the `exec()` call is exercised.
+     */
+    public function test_applyCharsetAndCollation_mysql_branch_with_collation(): void
+    {
+        $connection = SqliteHelper::makeConnection([
+            'charset'   => 'utf8mb4',
+            'collation' => 'utf8mb4_unicode_ci',
+        ]);
+        $connection->getPDO();
+        $this->spoofDriver($connection, 'mysql');
+
+        $this->expectException(\PDOException::class);
+        $this->invokePrivate($connection, 'applyCharsetAndCollation');
+    }
+
+    public function test_applyCharsetAndCollation_mysql_branch_without_collation(): void
+    {
+        $connection = SqliteHelper::makeConnection([
+            'charset'   => 'utf8mb4',
+            'collation' => null,
+        ]);
+        $connection->getPDO();
+        $this->spoofDriver($connection, 'mysql');
+
+        $this->expectException(\PDOException::class);
+        $this->invokePrivate($connection, 'applyCharsetAndCollation');
+    }
+
+    public function test_applyCharsetAndCollation_returns_early_for_empty_charset(): void
+    {
+        $connection = SqliteHelper::makeConnection(['charset' => '']);
+        $connection->getPDO();
+        $this->spoofDriver($connection, 'mysql');
+
+        // No exception — early return path.
+        $this->invokePrivate($connection, 'applyCharsetAndCollation');
+        self::assertTrue(true);
+    }
+
+    public function test_applyCharsetAndCollation_returns_early_for_unsafe_charset(): void
+    {
+        $connection = SqliteHelper::makeConnection(['charset' => 'utf8']);
+        $connection->getPDO();
+        $this->spoofDriver($connection, 'mysql');
+        // Bypass the setter validation by spoofing the charset directly.
+        $this->spoofCredential($connection, 'charset', "utf8' --");
+
+        // No exception — the regex guard catches it before exec.
+        $this->invokePrivate($connection, 'applyCharsetAndCollation');
+        self::assertTrue(true);
+    }
+
+    private function spoofDriver(Connection $connection, string $driver): void
+    {
+        $this->spoofCredential($connection, 'driver', $driver);
+    }
+
+    private function spoofCredential(Connection $connection, string $key, $value): void
+    {
+        $ref   = new \ReflectionObject($connection);
+        $prop  = $ref->getProperty('credentials');
+        $prop->setAccessible(true);
+        $creds = $prop->getValue($connection);
+        $creds[$key] = $value;
+        $prop->setValue($connection, $creds);
+    }
+
+    /**
+     * @param array<int, mixed> $args
+     * @return mixed
+     */
+    private function invokePrivate(Connection $connection, string $method, array $args = [])
+    {
+        $ref = new \ReflectionObject($connection);
+        $m   = $ref->getMethod($method);
+        $m->setAccessible(true);
+
+        return $m->invokeArgs($connection, $args);
+    }
 }

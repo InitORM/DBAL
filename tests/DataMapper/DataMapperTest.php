@@ -164,6 +164,35 @@ final class DataMapperTest extends TestCase
 
         self::assertSame($sql, $mapper->getQuery());
     }
+
+    public function test_get_magic_forwards_to_statement_properties(): void
+    {
+        $stmt   = $this->pdo->prepare('SELECT 1');
+        $mapper = new DataMapper($stmt);
+
+        self::assertSame('SELECT 1', $mapper->queryString);
+    }
+
+    public function test_isset_magic_forwards_to_statement_properties(): void
+    {
+        $stmt   = $this->pdo->prepare('SELECT 1');
+        $mapper = new DataMapper($stmt);
+
+        self::assertTrue(isset($mapper->queryString));
+    }
+
+    public function test_asLazy_sets_fetch_mode_to_lazy(): void
+    {
+        $stmt   = $this->pdo->prepare('SELECT id, name FROM users WHERE id = :id');
+        $mapper = new DataMapper($stmt);
+        $mapper->bindValue('id', 1);
+        $mapper->execute();
+        $mapper->asLazy();
+
+        $row = $mapper->row();
+        // PDORow exposes the columns as properties.
+        self::assertSame('Alice', $row->name);
+    }
 }
 
 final class UserRow

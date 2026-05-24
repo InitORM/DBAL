@@ -48,4 +48,19 @@ final class QueryLoggerTest extends TestCase
 
         self::assertSame([], $logger->all());
     }
+
+    public function test_isEnabled_reflects_constructor_argument(): void
+    {
+        self::assertFalse((new QueryLogger())->isEnabled());
+        self::assertFalse((new QueryLogger(false))->isEnabled());
+        self::assertTrue((new QueryLogger(true))->isEnabled());
+    }
+
+    public function test_add_with_null_start_time_records_zero_timer(): void
+    {
+        $logger = new QueryLogger(true);
+        $logger->add('SELECT 1', null, null);
+
+        self::assertSame(0.0, $logger->all()[0]['timer']);
+    }
 }
