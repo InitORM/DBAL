@@ -6,6 +6,8 @@
 [![License](https://poser.pugx.org/initorm/dbal/license)](LICENSE)
 [![PHP Version Require](https://poser.pugx.org/initorm/dbal/require/php)](https://packagist.org/packages/initorm/dbal)
 
+[![Designed & Maintained with Tan](https://www.muhammetsafak.com.tr/badges/designed-maintained-with-tan.svg)](https://www.muhammetsafak.com.tr/en/tan/)
+
 A small, dependency-free database abstraction layer for PHP. `initorm/dbal`
 gives you a thin, lazily-connecting PDO wrapper and a fluent result mapper —
 nothing more.
